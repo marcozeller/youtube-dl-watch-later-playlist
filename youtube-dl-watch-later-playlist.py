@@ -1,4 +1,4 @@
-from selenium import webdriver
+import undetected_chromedriver as uc
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -7,6 +7,7 @@ from selenium.common.exceptions import TimeoutException
 from termcolor import colored
 import getpass
 import subprocess
+import time
 
 download_folder = '~/Downloads/'
 
@@ -25,12 +26,12 @@ def start_browser():
     chrome_options.add_argument("--ignore-certificate-errors")
     chrome_options.add_argument("--disable-plugins-discovery")
     chrome_options.add_argument("--incognito")
-    return webdriver.Chrome(options=chrome_options)
+    return uc.Chrome(options=chrome_options)
 
 
 def login_to_google(driver, username, password):
     driver.get("https://stackoverflow.com/users/signup")
-    driver.find_element_by_xpath('//*[@id="openid-buttons"]/button[1]').click()
+    driver.find_element(By.XPATH, '//*[@id="openid-buttons"]/button[1]').click()
 
     verify_username(username)
     verify_password(password)
@@ -48,7 +49,7 @@ def verify_username(username):
     while True:
         # Enters username and clicks next button
         login_field.send_keys(username)
-        driver.find_element_by_id('identifierNext').click()
+        driver.find_element(By.ID, 'identifierNext').click()
 
         try:
             # Checks for invalid username warning
@@ -73,7 +74,7 @@ def verify_password(password):
     while True:
         # Enters password and clicks next button
         password_field.send_keys(password)
-        driver.find_element_by_id('passwordNext').click()
+        driver.find_element(By.ID, 'passwordNext').click()
 
         try:
             # Checks for invalid password warning
@@ -89,11 +90,34 @@ def verify_password(password):
             print(colored('Password verified.', 'green'))
             break
 
+def scroll_down_to_bottom_of_page(driver):
+    # Solution found here:
+    # https://stackoverflow.com/questions/20986631/how-can-i-scroll-a-web-page-using-selenium-webdriver-in-python
+
+    SCROLL_PAUSE_TIME = 1
+
+    # Get scroll height
+    last_height = driver.execute_script("return document.documentElement.scrollHeight")
+    while True:
+        # Scroll down to bottom
+        driver.execute_script("window.scrollTo(0,document.documentElement.scrollHeight);")
+
+        # Wait to load page
+        time.sleep(SCROLL_PAUSE_TIME)
+
+        # Calculate new scroll height and compare with last scroll height
+        new_height = driver.execute_script("return document.documentElement.scrollHeight")
+        if new_height == last_height:
+            print("break")
+            break
+        last_height = new_height
+
 
 def scrape_watch_later_playlist(driver):
     driver.get("https://www.youtube.com/playlist?list=WL")
+    scroll_down_to_bottom_of_page(driver)
     videos = WebDriverWait(driver, 60).until(
-        EC.presence_of_all_elements_located((By.XPATH, '//*[@id="content"]/a'))
+        EC.presence_of_all_elements_located((By.XPATH, '//a[@id="video-title"]'))
     )
     urls = []
 
@@ -122,7 +146,6 @@ if __name__ == '__main__':
     driver = start_browser()
     login_to_google(driver, username, password)
     videos = scrape_watch_later_playlist(driver)
-
     for video in videos:
         prefix = "youtube-dl -i -c "
         output = "-o '" + download_folder + "%(title)s.%(ext)s' "

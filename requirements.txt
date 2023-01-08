@@ -6,3 +6,6 @@ selenium == 3.141.0
 
 # youtube-dl-watch-later-playlist.py: 7
 termcolor == 1.1.0
+
+# youtube-dl-watch-later-playlist.py: 8
+undetected-chromedriver==3.2.1
